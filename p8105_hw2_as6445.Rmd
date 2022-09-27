@@ -1,0 +1,10 @@
+---
+title: "p8105_hw2_as6445"
+author: "Ayako Sekiya"
+date: "2022-09-27"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
