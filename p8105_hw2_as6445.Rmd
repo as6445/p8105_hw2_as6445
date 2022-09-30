@@ -6,5 +6,37 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
 ```
+
+#Problem 1
+
+This question is not graded. Solutions will be posted later. Make sure to include the code here still.
+
+I will first import the csv file and janior::clean names to clean the data. 
+
+Then, I selected the variables that I wanted to include in my data set. 
+
+I then changed the character variables for the entry variable into logical variables. 
+```{r import}
+transit_data = read_csv(file = "./Data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv") %>%
+janitor::clean_names()
+select(transit_data, line:station_location, entrance_location, entry, vending, ada) %>%
+recode(entry,  )
+```
+
+The following dataset includes the following variables: Line, "Station Name", "Station Latitude", "Station Longitude", "Station Location", "Entrance Location", Entry, Vending, ADA. 
+
+How many distinct stations are there? Note that stations are identified both by name and by line (e.g. 125th St 8th Avenue; 125st Broadway; 125st Lenox); the distinct function may be useful here.
+How many stations are ADA compliant?
+What proportion of station entrances / exits without vending allow entrance?
+
+# Problem 2
+
+```{r import trashweel data}
+transit_data = read_csv(file = "./Data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv") %>%
+janitor::clean_names()
+select(transit_data, line:station_location, entrance_location, entry, vending, ada) %>%
+recode(entry,  )
+```
+
