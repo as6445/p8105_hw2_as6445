@@ -5,11 +5,12 @@ date: "2022-09-27"
 output: github_document
 ---
 
-```{r setup, include=FALSE}
+```{r load_libraries}
 library(tidyverse)
+library(readxl)
 ```
 
-#Problem 1=
+#Problem 1
 
 This question is not graded. Solutions will be posted later. Make sure to include the code here still.
 
@@ -18,11 +19,18 @@ I will first import the csv file and janior::clean names to clean the data.
 Then, I selected the variables that I wanted to include in my data set. 
 
 I then changed the character variables for the entry variable into logical variables. 
-```{r import}
-transit_data = read_csv(file = "./Data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv")
-janitor::clean_names() %>%
-select(transit_data, line:station_location, entrance_location, entry, vending, ada) %>%
-recode(entry,  )
+
+```{r import_and_tidy}
+transit_data = 
+  read_csv(
+    "data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv",
+    col_types = cols(Route8 = "c", Route9 = "c", Route10 = "c", Route11 = "c")) %>% 
+  janitor::clean_names() %>% 
+  select(
+    line, station_name, station_latitude, station_longitude, 
+    starts_with("route"), entry, exit_only, vending, entrance_type, 
+    ada) %>% 
+  mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
 ```
 
 The following dataset includes the following variables: Line, "Station Name", "Station Latitude", "Station Longitude", "Station Location", "Entrance Location", Entry, Vending, ADA. 
@@ -37,21 +45,46 @@ I am importing the first sheet of the spreadsheet which includes information fro
 
 ```{r tidy data}
 trashwheel_data = 
-  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",sheet=1, skip= 1, range=cell_cols("A:N")) %>%
-  na.omit() %>%
-  as.integer(round("Sports Balls", digits=1))
+  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet=1, skip=1, range=cell_cols("A:N")) %>%
+  janitor::clean_names() %>% 
+  drop_na(dumpster) %>%
+  mutate(sports_balls=as.integer(round(sports_balls,0)))
   
-professorwheel_data = 
+professorwheel = 
   readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet=2, skip= 1, range=cell_cols("A:N")) %>%
-  na.omit() %>%
-  as.integer(round("Sports Balls", digits=0))
+  janitor::clean_names() %>% 
+  drop_na() %>%
+  mutate(sports_balls=as.integer(round(sports_balls,0)))
+
+
 ```
 
 # Problem 3
 
+I am inporting three data files. 
+
+For the first data file (pol_month), I first seperated the column with dates into three columns to show the year, month, and date. I then changed the month numbers into month names. Then, I removed the day variable using the `select` function. 
+
 ```{r}
-pols-month = read_csv(file = "./Data/pols-month.csv")
+pols_month = read_csv(file = "./Data/pols-month.csv") %>%
+  janitor::clean_names() %>% 
+  separate(mon, into=c("year", "month","date"), sep= "-") %>%
+  select(-"date") %>%
+  pivot_longer(
+      "prez_dem", "prez_gop", 
+      names_to = "president", 
+      values_to= "president")
+  mutate("month"=
+    (month.name["month"])
+    )
+
+
 unemployment = read_csv(file = "./Data/unemployment.csv")
+  janitor::clean_names() %>% 
+  separate(mon, into=c("year", "month","date"), sep= "-")
+  
 snp = read_csv(file = "./Data/snp.csv")
+  janitor::clean_names() %>% 
+  separate(mon, into=c("year", "month","date"), sep= "-")
 ```
 
