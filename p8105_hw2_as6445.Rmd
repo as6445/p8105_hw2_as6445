@@ -1,11 +1,12 @@
 ---
 title: "p8105_hw2_as6445"
 author: "Ayako Sekiya"
-date: "2022-09-27"
+date: "2022-10-04"
 output: github_document
 ---
 
-```{r load_libraries}
+```{r load_libraries, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 ```
@@ -33,38 +34,87 @@ transit_data =
   mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
 ```
 
-The following dataset includes the following variables: Line, "Station Name", "Station Latitude", "Station Longitude", "Station Location", "Entrance Location", Entry, Vending, ADA. 
+As it stands, these data are not "tidy": route number should be a variable, as should route. That is, to obtain a tidy dataset we would need to convert `route` variables from wide to long format. This will be useful when focusing on specific routes, but may not be necessary when considering questions that focus on station-level variables. 
 
-How many distinct stations are there? Note that stations are identified both by name and by line (e.g. 125th St 8th Avenue; 125st Broadway; 125st Lenox); the distinct function may be useful here.
-How many stations are ADA compliant?
-What proportion of station entrances / exits without vending allow entrance?
+The following code chunk selects station name and line, and then uses `distinct()` to obtain all unique combinations. As a result, the number of rows in this dataset is the number of unique stations.
+
+```{r}
+trans_ent %>% 
+  select(station_name, line) %>% 
+  distinct
+```
+
+The next code chunk is similar, but filters according to ADA compliance as an initial step. This produces a dataframe in which the number of rows is the number of ADA compliant stations. 
+
+```{r}
+trans_ent %>% 
+  filter(ada == TRUE) %>% 
+  select(station_name, line) %>% 
+  distinct
+```
+
+To compute the proportion of station entrances / exits without vending allow entrance, we first exclude station entrances that do not allow vending. Then, we focus on the `entry` variable -- this logical, so taking the mean will produce the desired proportion (recall that R will coerce logical to numeric in cases like this).
+
+```{r}
+trans_ent %>% 
+  filter(vending == "NO") %>% 
+  pull(entry) %>% 
+  mean
+```
+
+Lastly, we write a code chunk to identify stations that serve the A train, and to assess how many of these are ADA compliant. As a first step, we tidy the data as alluded to previously; that is, we convert `route` from wide to long format. After this step, we can use tools from previous parts of the question (filtering to focus on the A train, and on ADA compliance; selecting and using `distinct` to obtain dataframes with the required stations in rows).
+
+```{r}
+trans_ent %>% 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") %>% 
+  filter(route == "A") %>% 
+  select(station_name, line) %>% 
+  distinct
+
+trans_ent %>% 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") %>% 
+  filter(route == "A", ada == TRUE) %>% 
+  select(station_name, line) %>% 
+  distinct
+```
+
 
 # Problem 2
 
-I am importing the first sheet of the spreadsheet which includes information from trashwheel using `sheet`. I am also restricting the columns that are imported into the dataframe to exclude columns with notes. I used `drop_na()` to 
+I am importing the first sheet of the spreadsheet which includes information from trashwheel using `sheet`. I then tidied the data with the general steps listed. I restricted the columns that are imported into the dataframe to exclude columns with notes. I used `drop_na()` to remove the rows that have NA for the dumpster column. I rounded the number of sports balls to the nearest integer as well.
 
 ```{r tidy trashwheel data}
 trashwheel_data = 
-  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet=1, skip=1, range=cell_cols("A:N")) %>%
+  readxl::read_excel("data/Trash Wheel Collection Data.xlsx", sheet=1, skip=1, range=cell_cols("A:N")) %>%
   janitor::clean_names() %>%
   drop_na(dumpster) %>%
   mutate(sports_balls=as.integer(round(sports_balls,0))) %>%
   add_column(name= "trash_wheel")
+
+trashwheel_data
 ```
 
 I will repeat similar steps for the professor wheel data to tidy the data. 
 
 ```{r tidy professor data}
 professorwheel_data = 
-  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet=2, skip= 1, range=cell_cols("A:N")) %>%
+  readxl::read_excel("data/Trash Wheel Collection Data.xlsx", sheet=2, skip= 1, range=cell_cols("A:N")) %>%
   janitor::clean_names() %>% 
   drop_na() %>%
   mutate(sports_balls=as.integer(round(sports_balls,0))) %>%
   add_column(name= "professor_wheel") %>%
   mutate(dumpster= as.character(dumpster))
+
+professorwheel_data
 ```
 
-Not that the data is tidies, I will conduct a full merge of the two datasets I have cleaned. 
+After the data is tidy, I will conduct a full merge of the two datasets I have cleaned. 
 
 ```{r}
 wheels_data = 
@@ -93,18 +143,33 @@ pols= read_csv(file = "./Data/pols-month.csv") %>%
   mutate(month=month.abb[as.numeric(month)]) %>%
   pivot_longer(
     cols= starts_with("prez_"),
-    values_to = "president") %>%
+    names_to = "president",
+    names_prefix="prez_",
+    values_to="number") %>%
   select(-"date") 
 ```
 
 ```{r snp data}
 snp = read_csv(file = "./Data/snp.csv")%>%
-  janitor::clean_names() %>% 
-    mutate(date =as.Date(as.character(date), format = "%m/%d/%y")) %>%
-    separate(date, into=c("year", "month","date"), sep= "/") %>%
+  janitor::clean_names() %>%
+  mutate(date =as.Date(as.character(date), format = "%m/%d/%y"))
+
+snp_01<- filter(snp, row_number() < 176) %>%
+  mutate(date = as.Date(date,"%y/%m/%d")) %>%
+  separate(date, into = c("year", "month", "day"), sep = "-")
+
+snp_02<- filter(snp, row_number() > 175) %>%
+  mutate(date = as.Date(date,"%m/%d/%y")) %>%
+  separate(date, into = c("year", "month", "day"), sep = "-")
+
+snp = 
+  full_join(snp_01, snp_02) %>%
     mutate(month=month.abb[as.numeric(month)]) %>%
-    select(-"date")
+    select(-day) %>%
+    mutate(year = as.double(year))
 ```
+
+I decided to create two spreadsheets before 2000 and after 2000 to better convert the years. There are other ways to do this, but I thought this method was the most intuitive to me. Rather than using the `recode` function, I used `month.abb` to convert the month number into month name. 
 
 ```{r unemployment data}
 unemployment = read_csv(file = "./Data/unemployment.csv") %>%
@@ -114,9 +179,18 @@ unemployment = read_csv(file = "./Data/unemployment.csv") %>%
     names_to = "month", 
     values_to = "unemployment")
 
-merged_data= full_join(snp, pols)
 ```
 
-There are `r nrow(merged_data)` observations and `r ncol(merged_data)` columns in the final comined dataset. The variables included are as following: `r colnames(merged_data)`.  
+```{r merge}
 
-The total weight of trash collected by Professor Trash Wheel is `r sum(professorwheel_data$weight_tons)`. The total number of sports balls collected by Mr. Trash Wheel in 2020 is `r sum(trashwheel_data$weight_ton)`. 
+snp_pols_data= full_join(snp, pols)
+merged_data=full_join(snp_pols, unemployment)
+```
+
+There are `r nrow(pols)` observations and `r ncol(pols)` columns in the pols dataset. The variables included are as following: `r colnames(pols)`. This dataset includes the number of republican and democratic presidents, govenors, senators and house of representatives. 
+
+There are `r nrow(snp)` observations and `r ncol(snp)` columns in the snp dataset. The variables included are as following: `r colnames(merged_data)`.  Close is the closing values of the S&P stock index for the corresponding month.
+ 
+There are `r nrow(unemployment)` observations and `r ncol(unemployment)` columns in the unemployment dataset.The variables included are as following: `r colnames(merged_data)`. Unemployment shows the percentage of unemployment for each month.
+
+There are `r nrow(merged_data)` observations and `r ncol(merged_data)` columns in the final combined dataset. The variables included are as following: `r colnames(merged_data)`.The variables included are as following: `r colnames(merged_data)`. 
