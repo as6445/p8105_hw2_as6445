@@ -43,48 +43,80 @@ What proportion of station entrances / exits without vending allow entrance?
 
 I am importing the first sheet of the spreadsheet which includes information from trashwheel using `sheet`. I am also restricting the columns that are imported into the dataframe to exclude columns with notes. I used `drop_na()` to 
 
-```{r tidy data}
+```{r tidy trashwheel data}
 trashwheel_data = 
   readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet=1, skip=1, range=cell_cols("A:N")) %>%
-  janitor::clean_names() %>% 
+  janitor::clean_names() %>%
   drop_na(dumpster) %>%
-  mutate(sports_balls=as.integer(round(sports_balls,0)))
-  
-professorwheel = 
+  mutate(sports_balls=as.integer(round(sports_balls,0))) %>%
+  add_column(name= "trash_wheel")
+```
+
+I will repeat similar steps for the professor wheel data to tidy the data. 
+
+```{r tidy professor data}
+professorwheel_data = 
   readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", sheet=2, skip= 1, range=cell_cols("A:N")) %>%
   janitor::clean_names() %>% 
   drop_na() %>%
-  mutate(sports_balls=as.integer(round(sports_balls,0)))
-
-
+  mutate(sports_balls=as.integer(round(sports_balls,0))) %>%
+  add_column(name= "professor_wheel") %>%
+  mutate(dumpster= as.character(dumpster))
 ```
+
+Not that the data is tidies, I will conduct a full merge of the two datasets I have cleaned. 
+
+```{r}
+wheels_data = 
+  full_join(trashwheel_data, professorwheel_data)
+
+wheels_data
+```
+There are `r nrow(trashwheel_data)` observations and `r ncol(trashwheel_data)` columns in the Mr. Trashwheel data. There are `r nrow(professorwheel_data)` observations and `r ncol(professorwheel_data)` columns in the Professor Trashwheel data. There are `r nrow(wheels_data)` observations and `r ncol(wheels_data)`rows in the final combined dataset. The variables included are as following: `r colnames(wheels_data)`.  
+
+The total weight of trash collected by Professor Trash Wheel is `r sum(professorwheel_data$weight_tons)`. 
+
+The total number of sports balls collected by Mr. Trash Wheel in 2020 is `r trashwheel_data %>% filter(year == "2020") %>% pull(sports_balls) %>% sum()`. 
 
 # Problem 3
 
-I am inporting three data files. 
+I am importing three data files. 
 
 For the first data file (pol_month), I first seperated the column with dates into three columns to show the year, month, and date. I then changed the month numbers into month names. Then, I removed the day variable using the `select` function. 
 
-```{r}
-pols_month = read_csv(file = "./Data/pols-month.csv") %>%
+Note: Upon importing the dataset and viewing the dataset, there were values in prez_gop that were not included in the codebook. The codebook states that the values are 0 or 1, but the dataset includes 2 in 1974. This may be connected to the Watergate scandal, where there President Nixon was impeached. This should be further investigated. 
+
+```{r pols}
+pols= read_csv(file = "./Data/pols-month.csv") %>%
   janitor::clean_names() %>% 
   separate(mon, into=c("year", "month","date"), sep= "-") %>%
-  select(-"date") %>%
+  mutate(month=month.abb[as.numeric(month)]) %>%
   pivot_longer(
-      "prez_dem", "prez_gop", 
-      names_to = "president", 
-      values_to= "president")
-  mutate("month"=
-    (month.name["month"])
-    )
-
-
-unemployment = read_csv(file = "./Data/unemployment.csv")
-  janitor::clean_names() %>% 
-  separate(mon, into=c("year", "month","date"), sep= "-")
-  
-snp = read_csv(file = "./Data/snp.csv")
-  janitor::clean_names() %>% 
-  separate(mon, into=c("year", "month","date"), sep= "-")
+    cols= starts_with("prez_"),
+    values_to = "president") %>%
+  select(-"date") 
 ```
 
+```{r snp data}
+snp = read_csv(file = "./Data/snp.csv")%>%
+  janitor::clean_names() %>% 
+    mutate(date =as.Date(as.character(date), format = "%m/%d/%y")) %>%
+    separate(date, into=c("year", "month","date"), sep= "/") %>%
+    mutate(month=month.abb[as.numeric(month)]) %>%
+    select(-"date")
+```
+
+```{r unemployment data}
+unemployment = read_csv(file = "./Data/unemployment.csv") %>%
+  janitor::clean_names() %>% 
+  pivot_longer(
+    jan:dec,
+    names_to = "month", 
+    values_to = "unemployment")
+
+merged_data= full_join(snp, pols)
+```
+
+There are `r nrow(merged_data)` observations and `r ncol(merged_data)` columns in the final comined dataset. The variables included are as following: `r colnames(merged_data)`.  
+
+The total weight of trash collected by Professor Trash Wheel is `r sum(professorwheel_data$weight_tons)`. The total number of sports balls collected by Mr. Trash Wheel in 2020 is `r sum(trashwheel_data$weight_ton)`. 
