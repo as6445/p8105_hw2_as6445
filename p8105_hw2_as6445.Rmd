@@ -13,7 +13,7 @@ library(readxl)
 
 #Problem 1
 
-This question is not graded. Solutions will be posted later. Make sure to include the code here still.
+This question is not graded.
 
 I will first import the csv file and janior::clean names to clean the data. 
 
@@ -39,7 +39,7 @@ As it stands, these data are not "tidy": route number should be a variable, as s
 The following code chunk selects station name and line, and then uses `distinct()` to obtain all unique combinations. As a result, the number of rows in this dataset is the number of unique stations.
 
 ```{r}
-trans_ent %>% 
+transit_data %>% 
   select(station_name, line) %>% 
   distinct
 ```
@@ -47,7 +47,7 @@ trans_ent %>%
 The next code chunk is similar, but filters according to ADA compliance as an initial step. This produces a dataframe in which the number of rows is the number of ADA compliant stations. 
 
 ```{r}
-trans_ent %>% 
+transit_data %>% 
   filter(ada == TRUE) %>% 
   select(station_name, line) %>% 
   distinct
@@ -56,7 +56,7 @@ trans_ent %>%
 To compute the proportion of station entrances / exits without vending allow entrance, we first exclude station entrances that do not allow vending. Then, we focus on the `entry` variable -- this logical, so taking the mean will produce the desired proportion (recall that R will coerce logical to numeric in cases like this).
 
 ```{r}
-trans_ent %>% 
+transit_data %>% 
   filter(vending == "NO") %>% 
   pull(entry) %>% 
   mean
@@ -65,7 +65,7 @@ trans_ent %>%
 Lastly, we write a code chunk to identify stations that serve the A train, and to assess how many of these are ADA compliant. As a first step, we tidy the data as alluded to previously; that is, we convert `route` from wide to long format. After this step, we can use tools from previous parts of the question (filtering to focus on the A train, and on ADA compliance; selecting and using `distinct` to obtain dataframes with the required stations in rows).
 
 ```{r}
-trans_ent %>% 
+transit_data %>% 
   pivot_longer(
     route1:route11,
     names_to = "route_num",
@@ -74,7 +74,7 @@ trans_ent %>%
   select(station_name, line) %>% 
   distinct
 
-trans_ent %>% 
+transit_data %>% 
   pivot_longer(
     route1:route11,
     names_to = "route_num",
@@ -87,7 +87,7 @@ trans_ent %>%
 
 # Problem 2
 
-I am importing the first sheet of the spreadsheet which includes information from trashwheel using `sheet`. I then tidied the data with the general steps listed. I restricted the columns that are imported into the dataframe to exclude columns with notes. I used `drop_na()` to remove the rows that have NA for the dumpster column. I rounded the number of sports balls to the nearest integer as well.
+I am importing the first sheet of the spreadsheet and tidy the data.
 
 ```{r tidy trashwheel data}
 trashwheel_data = 
@@ -104,25 +104,25 @@ I will repeat similar steps for the professor wheel data to tidy the data.
 
 ```{r tidy professor data}
 professorwheel_data = 
-  readxl::read_excel("data/Trash Wheel Collection Data.xlsx", sheet=2, skip= 1, range=cell_cols("A:N")) %>%
+  readxl::read_excel("data/Trash Wheel Collection Data.xlsx", sheet=2, skip= 1, range=cell_cols("A:M")) %>%
   janitor::clean_names() %>% 
-  drop_na() %>%
-  mutate(sports_balls=as.integer(round(sports_balls,0))) %>%
-  add_column(name= "professor_wheel") %>%
-  mutate(dumpster= as.character(dumpster))
+  drop_na(dumpster) %>%
+  mutate(dumpster = as.double(dumpster)) %>%
+  mutate(year = as.character(year)) %>%
+  add_column(name= "professor_wheel")
 
 professorwheel_data
 ```
 
 After the data is tidy, I will conduct a full merge of the two datasets I have cleaned. 
 
-```{r}
+```{r fulljoin}
 wheels_data = 
   full_join(trashwheel_data, professorwheel_data)
 
 wheels_data
 ```
-There are `r nrow(trashwheel_data)` observations and `r ncol(trashwheel_data)` columns in the Mr. Trashwheel data. There are `r nrow(professorwheel_data)` observations and `r ncol(professorwheel_data)` columns in the Professor Trashwheel data. There are `r nrow(wheels_data)` observations and `r ncol(wheels_data)`rows in the final combined dataset. The variables included are as following: `r colnames(wheels_data)`.  
+There are `r nrow(trashwheel_data)` observations and `r ncol(trashwheel_data)` columns in the Mr. Trashwheel data. There are `r nrow(professorwheel_data)` observations and `r ncol(professorwheel_data)` columns in the Professor Trashwheel data. There are `r nrow(wheels_data)` observations and `r ncol(wheels_data)`columns in the final combined dataset. The variables included are as following: `r colnames(wheels_data)`.  
 
 The total weight of trash collected by Professor Trash Wheel is `r sum(professorwheel_data$weight_tons)`. 
 
@@ -130,46 +130,39 @@ The total number of sports balls collected by Mr. Trash Wheel in 2020 is `r tras
 
 # Problem 3
 
-I am importing three data files. 
+I am importing three data files and tidied each file.
 
-For the first data file (pol_month), I first seperated the column with dates into three columns to show the year, month, and date. I then changed the month numbers into month names. Then, I removed the day variable using the `select` function. 
-
+I first imported and tidied the `pols_month` dataset.
 Note: Upon importing the dataset and viewing the dataset, there were values in prez_gop that were not included in the codebook. The codebook states that the values are 0 or 1, but the dataset includes 2 in 1974. This may be connected to the Watergate scandal, where there President Nixon was impeached. This should be further investigated. 
 
 ```{r pols}
 pols= read_csv(file = "./Data/pols-month.csv") %>%
   janitor::clean_names() %>% 
-  separate(mon, into=c("year", "month","date"), sep= "-") %>%
+  separate(mon, into=c("year", "month", "day"), sep= "-") %>%
   mutate(month=month.abb[as.numeric(month)]) %>%
   pivot_longer(
     cols= starts_with("prez_"),
     names_to = "president",
     names_prefix="prez_",
     values_to="number") %>%
-  select(-"date") 
+  filter(!(number=="0")) %>%
+  select(-day,-number) %>%
+  mutate(year = as.double(year))
 ```
 
-```{r snp data}
+I then imported and tidied the `snp` dataset.
+
+```{r snp}
 snp = read_csv(file = "./Data/snp.csv")%>%
-  janitor::clean_names() %>%
-  mutate(date =as.Date(as.character(date), format = "%m/%d/%y"))
-
-snp_01<- filter(snp, row_number() < 176) %>%
-  mutate(date = as.Date(date,"%y/%m/%d")) %>%
-  separate(date, into = c("year", "month", "day"), sep = "-")
-
-snp_02<- filter(snp, row_number() > 175) %>%
-  mutate(date = as.Date(date,"%m/%d/%y")) %>%
-  separate(date, into = c("year", "month", "day"), sep = "-")
-
-snp = 
-  full_join(snp_01, snp_02) %>%
-    mutate(month=month.abb[as.numeric(month)]) %>%
-    select(-day) %>%
-    mutate(year = as.double(year))
+    janitor::clean_names() %>% 
+  separate(date, into = c("month", "day", "year"), sep = '/') %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(month = month.abb[as.numeric(month)]) %>% 
+  select(-day) %>% 
+  mutate(year=if_else(year<23, year+2000, year+1900))
 ```
 
-I decided to create two spreadsheets before 2000 and after 2000 to better convert the years. There are other ways to do this, but I thought this method was the most intuitive to me. Rather than using the `recode` function, I used `month.abb` to convert the month number into month name. 
+I then imported and tidied the `unemployment` dataset.
 
 ```{r unemployment data}
 unemployment = read_csv(file = "./Data/unemployment.csv") %>%
@@ -177,20 +170,21 @@ unemployment = read_csv(file = "./Data/unemployment.csv") %>%
   pivot_longer(
     jan:dec,
     names_to = "month", 
-    values_to = "unemployment")
-
+    values_to = "unemployment") %>%
+    mutate(year = as.double(year))
 ```
+
+I then created a final dataset called `merged_dataset` and did a left join to acheive this.
 
 ```{r merge}
-
-snp_pols_data= full_join(snp, pols)
-merged_data=full_join(snp_pols, unemployment)
+snp_pols_data= left_join(pols, snp)
+merged_data=left_join(snp_pols_data, unemployment)
 ```
 
-There are `r nrow(pols)` observations and `r ncol(pols)` columns in the pols dataset. The variables included are as following: `r colnames(pols)`. This dataset includes the number of republican and democratic presidents, govenors, senators and house of representatives. 
+There are `r nrow(pols)` observations and `r ncol(pols)` columns in the pols dataset. The variables included are as following: `r colnames(pols)`. This dataset includes the number of republican and democratic presidents, govenors, senators and house of representatives. The range of years is (`r range(pols$year)`).
 
-There are `r nrow(snp)` observations and `r ncol(snp)` columns in the snp dataset. The variables included are as following: `r colnames(merged_data)`.  Close is the closing values of the S&P stock index for the corresponding month.
+There are `r nrow(snp)` observations and `r ncol(snp)` columns in the snp dataset. The variables included are as following: `r colnames(snp)`.  Close is the closing values of the S&P stock index for the corresponding month. The range of years is (`r range(snp$year)`).
  
-There are `r nrow(unemployment)` observations and `r ncol(unemployment)` columns in the unemployment dataset.The variables included are as following: `r colnames(merged_data)`. Unemployment shows the percentage of unemployment for each month.
+There are `r nrow(unemployment)` observations and `r ncol(unemployment)` columns in the unemployment dataset.The variables included are as following: `r colnames(unemployment)`. Unemployment shows the percentage of unemployment for each month.The range of years is (`r range(unemployment$year)`).
 
-There are `r nrow(merged_data)` observations and `r ncol(merged_data)` columns in the final combined dataset. The variables included are as following: `r colnames(merged_data)`.The variables included are as following: `r colnames(merged_data)`. 
+There are `r nrow(merged_data)` observations and `r ncol(merged_data)` columns in the final combined dataset. The variables included are as following: `r colnames(merged_data)`.The variables included are as following: `r colnames(merged_data)`. The range of years is (`r range(merged_data$year)`).
